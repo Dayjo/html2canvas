@@ -44,9 +44,25 @@ exports.decode64 = function(base64) {
 };
 
 exports.getBounds = function(node) {
+
+	if ( node.tagName === 'svg' ) {
+		var box = exports.getBBoxInScreenSpace(node);
+		box = {
+            top: box.y,
+            bottom: (box.y + box.height),
+            right: (box.x + box.width),
+            left: box.x,
+            width:  box.width,
+            height: node.offsetHeight == null ? box.height : node.offsetHeight
+        };
+        console.log(box);
+		return box;
+	}
+
     if (node.getBoundingClientRect) {
         var clientRect = node.getBoundingClientRect();
         var width = node.offsetWidth == null ? clientRect.width : node.offsetWidth;
+
         return {
             top: clientRect.top,
             bottom: clientRect.bottom || (clientRect.top + clientRect.height),
@@ -59,7 +75,85 @@ exports.getBounds = function(node) {
     return {};
 };
 
+exports.getBoundingBoxInArbitrarySpace = function(element,mat){
+    var i;
+    var svgRoot = element.ownerSVGElement || element;
+    var bbox = element.getBBox();
+
+    var cPt1 =  svgRoot.createSVGPoint();
+    cPt1.x = bbox.x;
+    cPt1.y = bbox.y;
+    cPt1 = cPt1.matrixTransform(mat);
+
+    // repeat for other corner points and the new bbox is
+    // simply the minX/minY  to maxX/maxY of the four points.
+    var cPt2 = svgRoot.createSVGPoint();
+    cPt2.x = bbox.x + bbox.width;
+    cPt2.y = bbox.y;
+    cPt2 = cPt2.matrixTransform(mat);
+
+    var cPt3 = svgRoot.createSVGPoint();
+    cPt3.x = bbox.x;
+    cPt3.y = bbox.y + bbox.height;
+    cPt3 = cPt3.matrixTransform(mat);
+
+    var cPt4 = svgRoot.createSVGPoint();
+    cPt4.x = bbox.x + bbox.width;
+    cPt4.y = bbox.y + bbox.height;
+    cPt4 = cPt4.matrixTransform(mat);
+
+    var points = [cPt1,cPt2,cPt3,cPt4];
+
+    //find minX,minY,maxX,maxY
+    var minX=Number.MAX_VALUE;
+    var minY=Number.MAX_VALUE;
+    var maxX=0;
+    var maxY=0;
+    for(i=0;i<points.length;i++)
+    {
+        if (points[i].x < minX)
+        {
+            minX = points[i].x;
+        }
+        if (points[i].y < minY)
+        {
+            minY = points[i].y;
+        }
+        if (points[i].x > maxX)
+        {
+            maxX = points[i].x;
+        }
+        if (points[i].y > maxY)
+        {
+            maxY = points[i].y;
+        }
+    }
+
+    //instantiate new object that is like an SVGRect
+    var newBBox = {"x":minX,"y":minY,"width":maxX-minX,"height":maxY-minY};
+    return newBBox;
+};
+
+exports.getBBoxInScreenSpace = function(element){
+    return exports.getBoundingBoxInArbitrarySpace(element,element.getScreenCTM());
+};
+
 exports.offsetBounds = function(node) {
+
+    if ( node.tagName === 'svg' ) {
+		var box = exports.getBBoxInScreenSpace(node);
+		box = {
+            top: box.y,
+            bottom: (box.y + box.height),
+            right: (box.x + box.width),
+            left: box.x,
+            width:  box.width,
+            height: box.height
+        };
+        console.log(box);
+		return box;
+	}
+
     var parent = node.offsetParent ? exports.offsetBounds(node.offsetParent) : {top: 0, left: 0};
 
     return {
